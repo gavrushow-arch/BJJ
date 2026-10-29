@@ -4,21 +4,32 @@ struct CategoriesScreen: View {
     @EnvironmentObject private var store: AdminStore
     @State private var groups: [J] = []
     @State private var problem: String?
+    @State private var query = ""
+    private var filtered: [J] { groups.filter { query.isEmpty || categoryTitle($0).localizedCaseInsensitiveContains(query) } }
     var body: some View {
         List {
-            if let problem { Text(problem).foregroundStyle(.red) }
-            ForEach(groups.indices,id:\.self) { index in let g = groups[index]
-                NavigationLink { CategoryScreen(group:g) } label: {
-                    VStack(alignment:.leading) { Text(categoryTitle(g)); Text("\(g["system"].str) · \(g["participantIds"].list.count) участников").font(.caption) }
-                }
+            if let problem { Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }
+            if groups.isEmpty && problem == nil {
+                ContentUnavailableView("Категории пока не сформированы", systemImage: "square.grid.2x2", description: Text("Добавьте участников — категории появятся автоматически."))
+            } else if filtered.isEmpty && !query.isEmpty {
+                ContentUnavailableView.search(text: query)
             }
+            Section("Категорий: \(filtered.count)") { ForEach(filtered.indices,id:\.self) { index in let g = filtered[index]
+                NavigationLink { CategoryScreen(group:g) } label: {
+                    VStack(alignment:.leading, spacing: 10) {
+                        Text(categoryTitle(g)).font(.headline).foregroundStyle(.primary)
+                        Label("\(g["participantIds"].list.count) участников", systemImage: "person.2").font(.subheadline).foregroundStyle(.secondary)
+                        StatusBadge(title: g["system"].str, color: AdminTheme.accent, icon: g["system"].str == "Круговая" ? "arrow.triangle.2.circlepath" : "point.3.connected.trianglepath.dotted")
+                    }.padding(.vertical, 6)
+                }
+            } }
             if store.active["status"].str == "Регистрация" {
                 Section("Общие настройки") {
                     NavigationLink("Объединить веса / пояса") { MergeScreen(event:store.active) }
                     NavigationLink("Шаблоны и общие параметры") { EventSettingsScreen(event:store.active) }
                 }
             }
-        }.navigationTitle("Категории")
+        }.adminList().navigationTitle("Категории").searchable(text: $query, prompt: "Возраст, вес или пояс")
         .task(id:store.snapshot["revision"].int) { do { groups = try SharedEngine.run("categories",snapshot:store.snapshot).list; problem = nil } catch { problem = error.localizedDescription } }
     }
 }
@@ -29,7 +40,7 @@ struct CategoryScreen: View {
     @State private var cfg: J = .null
     var body: some View {
         List {
-            Text(categoryTitle(group)).font(.headline)
+            Text(categoryTitle(group)).font(.title2.bold()).padding(.vertical, 8)
             if store.active != .null {
                 let base: [String:J] = ["eventId":store.active["id"],"expectedVersion":store.active["version"],"key":.string(categoryKey(group))]
                 if store.active["status"].str == "Регистрация" {
@@ -51,7 +62,7 @@ struct CategoryScreen: View {
                 }
             }
             if !group.id.isEmpty { NavigationLink("Сетка, схватки и места") { GroupResultsScreen(group:group) } }
-        }.navigationTitle("Категория")
+        }.adminList().navigationTitle("Категория")
         .task(id:store.snapshot["revision"].int) { do { cfg = try SharedEngine.run("category",snapshot:store.snapshot,payload:group) } catch { store.error = error.localizedDescription } }
     }
 }
@@ -69,7 +80,7 @@ struct NumberSettingScreen: View {
             Stepper(value:$value,in:(field == "durationSec" || ["young","child","adult","black"].contains(field) ? 0.5 : field == "seconds" ? -1440 : 0)...(field == "seconds" ? 1440 : field == "restSec" ? 120 : 60),step:0.5) { Text("\(value.formatted()) мин") }
             Button("Сохранить") { save(.number(value*60)) }.disabled(!store.canEdit)
             if resettable { Button("Использовать шаблон турнира") { save(.null) }.disabled(!store.canEdit) }
-        }.navigationTitle(title)
+        }.adminList().navigationTitle(title)
     }
     private func save(_ value: J) { var p = payload; p[field] = value; Task { if await store.perform(action,p) { dismiss() } } }
 }
@@ -81,7 +92,7 @@ struct MatAssignmentScreen: View {
     var body: some View {
         List {
             ForEach(store.rows("mats").filter { $0["eventId"] == store.active["id"] }) { mat in Button(mat["name"].str) { var p = payload; p["matId"] = mat["id"]; Task { if await store.perform("category.configure",p) { dismiss() } } }.disabled(!store.canEdit) }
-        }.navigationTitle("Выбрать ковёр")
+        }.adminList().navigationTitle("Выбрать ковёр")
     }
 }
 
@@ -101,7 +112,7 @@ struct MergeScreen: View {
             Section("Выберите минимум два значения") { ForEach(choices,id:\.self) { value in Button { if selected.contains(value) { selected.remove(value) } else { selected.insert(value) } } label: { HStack { Text(value); Spacer(); if selected.contains(value) { Image(systemName:"checkmark") } } } } }
             Button("Сохранить объединение") { Task { if await store.perform("category.merge",["eventId":event["id"],"expectedVersion":event["version"],"kind":.string(kind),"age":.string(age),"values":.array(selected.sorted().map(J.string))]) { selected = [] } } }.disabled(!store.canEdit || selected.count < 2)
             Section { Text("Веса объединяются внутри возраста. При разных системах, длительностях или коврах потребуется выбрать итоговые настройки категории.").font(.caption); Button("Сбросить все объединения",role:.destructive) { reset = true }.disabled(!store.canEdit) }
-        }.navigationTitle("Объединения")
+        }.adminList().navigationTitle("Объединения")
         .onChange(of:kind) { _, _ in selected = [] }.onChange(of:age) { _, _ in selected = [] }
         .confirmationDialog("Сбросить объединения поясов и весов?",isPresented:$reset) { Button("Сбросить",role:.destructive) { Task { await store.perform("category.reset",["eventId":event["id"],"expectedVersion":event["version"]]) } } }
     }
@@ -127,13 +138,13 @@ struct EventSettingsScreen: View {
                 NavigationLink("Интервал между схватками") { NumberSettingScreen(title:"Интервал",action:"event.templates",payload:base,field:"gapSec",initial:Double(event["gapSec"].int)/60) }
             }
             NavigationLink("Переименовать клуб") { ClubsScreen() }
-        }.navigationTitle("Параметры турнира")
+        }.adminList().navigationTitle("Параметры турнира")
     }
 }
 
 struct ClubsScreen: View {
     @EnvironmentObject private var store: AdminStore
-    var body: some View { List { ForEach(store.rows("clubs")) { club in NavigationLink(club["name"].str) { ClubRenameScreen(club:club,event:store.active) } } }.navigationTitle("Клубы") }
+    var body: some View { List { ForEach(store.rows("clubs")) { club in NavigationLink(club["name"].str) { ClubRenameScreen(club:club,event:store.active) } } }.adminList().navigationTitle("Клубы") }
 }
 struct ClubRenameScreen: View {
     @EnvironmentObject private var store: AdminStore
@@ -141,5 +152,5 @@ struct ClubRenameScreen: View {
     @State private var club: J; @State private var event: J
     @State private var name: String
     init(club: J,event: J) { _club = State(initialValue:club); _event = State(initialValue:event); _name = State(initialValue:club["name"].str) }
-    var body: some View { Form { TextField("Название",text:$name); Text("Архивные заявки не изменятся.").font(.caption); Button("Переименовать") { Task { if await store.perform("club.rename",["eventId":event["id"],"expectedVersion":event["version"],"clubId":club["id"],"name":.string(name)]) { dismiss() } } }.disabled(!store.canEdit || name.isEmpty) }.navigationTitle("Клуб") }
+    var body: some View { Form { TextField("Название",text:$name); Text("Архивные заявки не изменятся.").font(.caption); Button("Переименовать") { Task { if await store.perform("club.rename",["eventId":event["id"],"expectedVersion":event["version"],"clubId":club["id"],"name":.string(name)]) { dismiss() } } }.disabled(!store.canEdit || name.isEmpty) }.adminList().navigationTitle("Клуб") }
 }
