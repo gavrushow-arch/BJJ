@@ -87,13 +87,15 @@ struct MetricTile: View {
 
 struct AthleteRow: View {
     let person: J
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            Text(person["name"].str.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
+            if !typeSize.isAccessibilitySize { Text(person["name"].str.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
                 .font(.subheadline.bold()).foregroundStyle(AdminTheme.accent)
                 .frame(width: 44, height: 44)
                 .background(AdminTheme.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 5) {
                 Text(person["name"].str).font(.headline).foregroundStyle(.primary)
                 Text(person["club"].str.isEmpty ? "Без клуба" : person["club"].str)

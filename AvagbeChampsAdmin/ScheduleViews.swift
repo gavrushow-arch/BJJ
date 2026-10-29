@@ -113,6 +113,9 @@ struct MatchScreen: View {
                                 Image(systemName: "trophy").font(.title2)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(store.rows("participants").first { $0.id == id }?["name"].str ?? store.person(id)).font(.headline)
+                                    if let person = store.rows("participants").first(where: { $0.id == id }), !person["club"].str.isEmpty {
+                                        Text(person["club"].str).font(.subheadline).foregroundStyle(.secondary)
+                                    }
                                     Text("Выбрать победителем").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
