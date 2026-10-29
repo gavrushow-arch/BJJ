@@ -2,6 +2,13 @@ import XCTest
 @testable import AvagbeChampsAdmin
 
 final class SharedEngineTests: XCTestCase {
+    func testSavedEndpointFallsBackAndPreservesValidCustomAddress() {
+        for saved in [nil, "", "   ", "https://script.google.com/macros/s/…/exec", "not a URL", APIClient.defaultEndpoint+"?key=old"] as [String?] {
+            XCTAssertEqual(APIClient.configuredEndpoint(saved),APIClient.defaultEndpoint)
+        }
+        let custom = "https://script.google.com/macros/s/AKfycb1234567890customDeployment/exec"
+        XCTAssertEqual(APIClient.configuredEndpoint(" \n"+custom+"\n "),custom)
+    }
     func testDefaultEndpointAndValidation() throws {
         XCTAssertEqual(try APIClient.validatedURL(APIClient.defaultEndpoint).host,"script.google.com")
         XCTAssertTrue(APIClient.defaultEndpoint.hasSuffix("/exec"))

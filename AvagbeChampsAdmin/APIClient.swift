@@ -11,8 +11,12 @@ struct APIError: LocalizedError {
 struct APIClient {
     static let defaultEndpoint = "https://script.google.com/macros/s/AKfycbyVbd5ox_mZzVhatbRNUlU9AQQ3n7ZN1ITx7wwq1iDrwiwoi12mBVP0WsHUG4mndTgr/exec"
     let endpoint: String
+    static func configuredEndpoint(_ saved: String?) -> String {
+        let candidate = saved?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return (try? validatedURL(candidate)) == nil ? defaultEndpoint : candidate
+    }
     static func validatedURL(_ endpoint: String) throws -> URL {
-        guard let url = URL(string: endpoint), url.scheme == "https", url.host == "script.google.com", url.path.hasPrefix("/macros/s/"), url.path.hasSuffix("/exec"), url.query == nil, url.fragment == nil, url.user == nil, url.password == nil else {
+        guard let url = URL(string: endpoint), url.scheme == "https", url.host == "script.google.com", url.path.range(of:"^/macros/s/[A-Za-z0-9_-]{20,}/exec$",options:.regularExpression) != nil, url.query == nil, url.fragment == nil, url.user == nil, url.password == nil else {
             throw APIError("URL", "Укажите опубликованный HTTPS-адрес Apps Script, заканчивающийся на /exec, без параметров")
         }
         return url

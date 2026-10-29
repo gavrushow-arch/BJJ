@@ -5,10 +5,7 @@ import Network
 import UIKit
 
 @MainActor final class AdminStore: ObservableObject {
-    @Published var endpoint: String = {
-        let saved = UserDefaults.standard.string(forKey: "BJJ.endpoint")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return saved.isEmpty ? APIClient.defaultEndpoint : saved
-    }()
+    @Published var endpoint = APIClient.configuredEndpoint(UserDefaults.standard.string(forKey:"BJJ.endpoint"))
     @Published var session = SessionKeychain.load()
     @Published var snapshot: J = .object([:])
     @Published var catalog: J = .object([:])

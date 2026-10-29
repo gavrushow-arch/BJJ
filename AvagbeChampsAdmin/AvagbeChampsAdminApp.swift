@@ -57,9 +57,10 @@ struct LoginScreen: View {
     var body: some View {
         Form {
             Section("Только для администраторов") { Text("Участники и родители используют @AvagbeChampsbot. Вход подтверждается действующим администратором в Telegram.") }
-            Section("Адрес Apps Script") {
-                TextField("https://script.google.com/macros/s/…/exec",text:$store.endpoint).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+            Section("Вход") {
+                Text("Подключение уже настроено. Подтвердите вход в Telegram аккаунтом администратора.")
                 Button("Подключить устройство") { Task { await store.beginPairing() } }.disabled(!store.online || store.busy)
+                NavigationLink("Настройки подключения") { EndpointSettingsScreen() }.disabled(store.busy)
             }
             if let pairing = store.pairing {
                 Section("Подтверждение") {
@@ -68,6 +69,7 @@ struct LoginScreen: View {
                     Button("Я подтвердил — войти") { Task { await store.completePairing() } }.disabled(store.busy || !store.online)
                 }
             }
+            Section { Text("Версия \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")").font(.caption).foregroundStyle(.secondary) }
         }.navigationTitle("AvagbeChamps Admin")
     }
 }
