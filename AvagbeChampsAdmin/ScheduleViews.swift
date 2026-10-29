@@ -11,13 +11,10 @@ struct BoutLabel: View {
     }
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
-            if typeSize.isAccessibilitySize {
+            if typeSize.isAccessibilitySize || match["status"].str.count > 18 {
                 VStack(alignment: .leading, spacing: 8) { number; MatchStatus(status: match["status"].str) }
             } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack { number.fixedSize(); Spacer(minLength: 8); MatchStatus(status: match["status"].str).fixedSize() }
-                    VStack(alignment: .leading, spacing: 8) { number; MatchStatus(status: match["status"].str) }
-                }
+                HStack { number; Spacer(minLength: 8); MatchStatus(status: match["status"].str) }
             }
             competitor("a")
             competitor("b")
@@ -110,7 +107,7 @@ struct MatchScreen: View {
                     ForEach([current["a"].str,current["b"].str].filter { !$0.isEmpty },id:\.self) { id in
                         Button { confirmationMatch = current; winner = id } label: {
                             HStack(alignment: .center, spacing: 14) {
-                                Image(systemName: "trophy").font(.title2)
+                                Image(systemName: "trophy").font(.title2).foregroundStyle(AdminTheme.accent)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(store.rows("participants").first { $0.id == id }?["name"].str ?? store.person(id)).font(.headline)
                                     if let person = store.rows("participants").first(where: { $0.id == id }), !person["club"].str.isEmpty {
@@ -119,8 +116,8 @@ struct MatchScreen: View {
                                     Text("Выбрать победителем").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
-                            }.frame(minHeight: 56).padding(.vertical, 8)
-                        }.disabled(!editable)
+                            }.frame(minHeight: 56).padding(.vertical, 8).contentShape(Rectangle())
+                        }.buttonStyle(.plain).disabled(!editable)
                     }
                     if !current["winner"].str.isEmpty { Button("Сбросить результат",role:.destructive) { confirmationMatch = current; clear = true }.disabled(!editable) }
                 } header: { Text("Результат схватки") } footer: { Text("После выбора спортсмена потребуется подтверждение.") }
