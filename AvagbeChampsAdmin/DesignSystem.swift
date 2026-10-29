@@ -78,7 +78,7 @@ struct MetricTile: View {
     let icon: String
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: icon).foregroundStyle(AdminTheme.accent).font(.title3)
+            Image(systemName: icon).foregroundStyle(AdminTheme.accent).font(.title3).frame(height: 28)
             Text(value).font(.largeTitle.bold()).monospacedDigit()
             Text(title).font(.subheadline).foregroundStyle(.secondary)
         }.adminCard().accessibilityElement(children: .combine)

@@ -2,17 +2,22 @@ import SwiftUI
 
 struct BoutLabel: View {
     @EnvironmentObject private var store: AdminStore
+    @Environment(\.dynamicTypeSize) private var typeSize
     let match: J
     private func name(_ side: String) -> String {
-        if !match[side].str.isEmpty { return store.person(match[side].str) }
+        if let person = store.rows("participants").first(where: { $0.id == match[side].str }) { return person["name"].str }
         if let source = store.rows("matches").first(where: { $0.id == match[side == "a" ? "sourceA" : "sourceB"].str }) { return "Победитель № \(source["publicNumber"].int)" }
         return "Проход без боя"
     }
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
-            ViewThatFits(in: .horizontal) {
-                HStack { number; Spacer(minLength: 8); MatchStatus(status: match["status"].str) }
+            if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 8) { number; MatchStatus(status: match["status"].str) }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack { number.fixedSize(); Spacer(minLength: 8); MatchStatus(status: match["status"].str).fixedSize() }
+                    VStack(alignment: .leading, spacing: 8) { number; MatchStatus(status: match["status"].str) }
+                }
             }
             competitor("a")
             competitor("b")
@@ -29,10 +34,14 @@ struct BoutLabel: View {
     private func competitor(_ side: String) -> some View {
         let won = !match["winner"].str.isEmpty && match["winner"] == match[side]
         return HStack(alignment: .top, spacing: 10) {
-            Image(systemName: won ? "checkmark.circle.fill" : "person.circle")
+            if !typeSize.isAccessibilitySize { Image(systemName: won ? "checkmark.circle.fill" : "person.circle")
                 .foregroundStyle(won ? Color.green : Color.secondary).accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 3) {
-                Text(name(side)).font(.headline).foregroundStyle(.primary)
+                Text(name(side)).font(.headline).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                if let person = store.rows("participants").first(where: { $0.id == match[side].str }), !person["club"].str.isEmpty {
+                    Text(person["club"].str).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 if won { Text("Победитель").font(.caption.weight(.semibold)).foregroundStyle(.green) }
             }
         }
@@ -103,7 +112,7 @@ struct MatchScreen: View {
                             HStack(alignment: .center, spacing: 14) {
                                 Image(systemName: "trophy").font(.title2)
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(store.person(id)).font(.headline)
+                                    Text(store.rows("participants").first { $0.id == id }?["name"].str ?? store.person(id)).font(.headline)
                                     Text("Выбрать победителем").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
